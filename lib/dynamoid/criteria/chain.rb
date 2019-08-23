@@ -125,6 +125,11 @@ module Dynamoid #:nodoc:
         { :consistent_read => consistent_read }
       end
 
+      def project(fields)
+        @project = fields.map(&:to_s).join(', ')
+        self
+      end
+
       private
 
       # The actual records referenced by the association.
@@ -134,10 +139,10 @@ module Dynamoid #:nodoc:
       # @since 0.2.0
       def records
         results = if key_present?
-          records_via_query
-        else
-          records_via_scan
-        end
+                    records_via_query
+                  else
+                    records_via_scan
+                  end
         @batch_size ? results : Array(results)
       end
 
@@ -192,25 +197,25 @@ module Dynamoid #:nodoc:
         val = type_cast_condition_parameter(name, query[key])
 
         hash = case operation
-        when 'gt'
-          { gt: val }
-        when 'lt'
-          { lt: val }
-        when 'gte'
-          { gte: val }
-        when 'lte'
-          { lte: val }
-        when 'between'
-          { between: val }
-        when 'begins_with'
-          { begins_with: val }
-        when 'in'
-          { in: val }
-        when 'contains'
-          { contains: val }
-        when 'not_contains'
-          { not_contains: val }
-        end
+               when 'gt'
+                 { gt: val }
+               when 'lt'
+                 { lt: val }
+               when 'gte'
+                 { gte: val }
+               when 'lte'
+                 { lte: val }
+               when 'between'
+                 { between: val }
+               when 'begins_with'
+                 { begins_with: val }
+               when 'in'
+                 { in: val }
+               when 'contains'
+                 { contains: val }
+               when 'not_contains'
+                 { not_contains: val }
+               end
 
         return { name.to_sym => hash }
       end
@@ -236,8 +241,8 @@ module Dynamoid #:nodoc:
         end
 
         (query.keys.map(&:to_sym) - [@hash_key.to_sym, @range_key.try(:to_sym)])
-          .reject { |k, _| k.to_s =~ /^#{@range_key}\./ }
-          .each do |key|
+            .reject { |k, _| k.to_s =~ /^#{@range_key}\./ }
+            .each do |key|
           if key.to_s.include?('.')
             opts.update(field_hash(key))
           else
@@ -322,12 +327,12 @@ module Dynamoid #:nodoc:
       def query_opts
         opts = {}
         opts[:index_name] = @index_name if @index_name
-        opts[:select] = 'ALL_ATTRIBUTES'
         opts[:record_limit] = @record_limit if @record_limit
         opts[:scan_limit] = @scan_limit if @scan_limit
         opts[:batch_size] = @batch_size if @batch_size
         opts[:next_token] = start_key if @start
         opts[:scan_index_forward] = @scan_index_forward
+        opts[:project] = @project
         opts
       end
 
@@ -351,6 +356,7 @@ module Dynamoid #:nodoc:
         opts[:batch_size] = @batch_size if @batch_size
         opts[:next_token] = start_key if @start
         opts[:consistent_read] = true if @consistent_read
+        opts[:project] = @project
         opts
       end
     end

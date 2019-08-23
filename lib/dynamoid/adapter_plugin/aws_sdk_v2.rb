@@ -9,24 +9,21 @@ module Dynamoid
           range_less_than:    'LT',
           range_gte:          'GE',
           range_lte:          'LE',
-          range_begins_with:  'BEGINS_WITH',
           range_between:      'BETWEEN',
           range_eq:           'EQ'
       }
 
-      # Don't implement NULL and NOT_NULL because it doesn't make seanse -
+      # Don't implement NULL and NOT_NULL because it doesn't make sense -
       # we declare schema in models
       FIELD_MAP = {
-          eq:           'EQ',
-          gt:           'GT',
-          lt:           'LT',
-          gte:          'GE',
-          lte:          'LE',
-          begins_with:  'BEGINS_WITH',
-          between:      'BETWEEN',
-          in:           'IN',
-          contains:     'CONTAINS',
-          not_contains: 'NOT_CONTAINS'
+          eq:           '=',
+          gt:           '>',
+          lt:           '<',
+          gte:          '>=',
+          lte:          '<=',
+          between:      'between',
+          in:           'in',
+          contains:     'contains'
       }
       HASH_KEY  = "HASH".freeze
       RANGE_KEY = "RANGE".freeze
@@ -97,13 +94,13 @@ module Dynamoid
 
         begin
           client.batch_write_item(
-            {
-              request_items: {
-                table_name => request_items,
-              },
-              return_consumed_capacity: "TOTAL",
-              return_item_collection_metrics: "SIZE"
-            }.merge!(options)
+              {
+                  request_items: {
+                      table_name => request_items,
+                  },
+                  return_consumed_capacity: "TOTAL",
+                  return_item_collection_metrics: "SIZE"
+              }.merge!(options)
           )
         rescue Aws::DynamoDB::Errors::ConditionalCheckFailedException => e
           raise Dynamoid::Errors::ConditionalCheckFailedException, e
@@ -139,21 +136,21 @@ module Dynamoid
             request_items = Hash.new{|h, k| h[k] = []}
 
             keys = if rng.present?
-              Array(ids).map do |h,r|
-                { hk => h, rng => r }
-              end
-            else
-              Array(ids).map do |id|
-                { hk => id }
-              end
-            end
+                     Array(ids).map do |h,r|
+                       { hk => h, rng => r }
+                     end
+                   else
+                     Array(ids).map do |id|
+                       { hk => id }
+                     end
+                   end
 
             request_items[t] = {
-              keys: keys
+                keys: keys
             }
 
             results = client.batch_get_item(
-              request_items: request_items
+                request_items: request_items
             )
 
             results.data[:responses].each do |table, rows|
@@ -203,33 +200,33 @@ module Dynamoid
         write_capacity = options[:write_capacity] || Dynamoid::Config.write_capacity
 
         secondary_indexes = options.slice(
-          :local_secondary_indexes,
-          :global_secondary_indexes
+            :local_secondary_indexes,
+            :global_secondary_indexes
         )
         ls_indexes = options[:local_secondary_indexes]
         gs_indexes = options[:global_secondary_indexes]
 
         key_schema = {
-          :hash_key_schema => { key => (options[:hash_key_type] || :string) },
-          :range_key_schema => options[:range_key]
+            :hash_key_schema => { key => (options[:hash_key_type] || :string) },
+            :range_key_schema => options[:range_key]
         }
         attribute_definitions = build_all_attribute_definitions(
-          key_schema,
-          secondary_indexes
+            key_schema,
+            secondary_indexes
         )
         key_schema = aws_key_schema(
-          key_schema[:hash_key_schema],
-          key_schema[:range_key_schema]
+            key_schema[:hash_key_schema],
+            key_schema[:range_key_schema]
         )
 
         client_opts = {
-          table_name: table_name,
-          provisioned_throughput: {
-            read_capacity_units: read_capacity,
-            write_capacity_units: write_capacity
-          },
-          key_schema: key_schema,
-          attribute_definitions: attribute_definitions
+            table_name: table_name,
+            provisioned_throughput: {
+                read_capacity_units: read_capacity,
+                write_capacity_units: write_capacity
+            },
+            key_schema: key_schema,
+            attribute_definitions: attribute_definitions
         }
 
         if ls_indexes.present?
@@ -292,9 +289,9 @@ module Dynamoid
         conditions = options[:conditions]
         table = describe_table(table_name)
         client.delete_item(
-          table_name: table_name,
-          key: key_stanza(table, key, range_key),
-          expected: expected_stanza(conditions)
+            table_name: table_name,
+            key: key_stanza(table, key, range_key),
+            expected: expected_stanza(conditions)
         )
       rescue Aws::DynamoDB::Errors::ConditionalCheckFailedException => e
         raise Dynamoid::Errors::ConditionalCheckFailedException, e
@@ -340,7 +337,7 @@ module Dynamoid
         range_key = options.delete(:range_key)
 
         item = client.get_item(table_name: table_name,
-          key: key_stanza(table, key, range_key)
+                               key: key_stanza(table, key, range_key)
         )[:item]
         item ? result_item_to_hash(item) : nil
       end
@@ -364,10 +361,10 @@ module Dynamoid
         raise "non-empty options: #{options}" unless options.empty?
         begin
           result = client.update_item(table_name: table_name,
-            key: key_stanza(table, key, range_key),
-            attribute_updates: iu.to_h,
-            expected: expected_stanza(conditions),
-            return_values: "ALL_NEW"
+                                      key: key_stanza(table, key, range_key),
+                                      attribute_updates: iu.to_h,
+                                      expected: expected_stanza(conditions),
+                                      return_values: "ALL_NEW"
           )
           result_item_to_hash(result[:attributes])
         rescue Aws::DynamoDB::Errors::ConditionalCheckFailedException => e
@@ -403,11 +400,11 @@ module Dynamoid
 
         begin
           client.put_item(
-            {
-              table_name: table_name,
-              item: item,
-              expected: expected_stanza(options)
-            }.merge!(options)
+              {
+                  table_name: table_name,
+                  item: item,
+                  expected: expected_stanza(options)
+              }.merge!(options)
           )
         rescue Aws::DynamoDB::Errors::ConditionalCheckFailedException => e
           raise Dynamoid::Errors::ConditionalCheckFailedException, e
@@ -437,15 +434,15 @@ module Dynamoid
         hk    = (opts[:hash_key].present? ? opts.delete(:hash_key) : table.hash_key).to_s
         rng   = (opts[:range_key].present? ? opts.delete(:range_key) : table.range_key).to_s
         q     = opts.slice(
-                  :consistent_read,
-                  :scan_index_forward,
-                  :select,
-                  :index_name
-                )
+            :consistent_read,
+            :scan_index_forward,
+            :index_name
+        )
+        q[:projection_expression] = opts[:project] if opts[:project].present?
 
+        opts.delete(:project)
         opts.delete(:consistent_read)
         opts.delete(:scan_index_forward)
-        opts.delete(:select)
         opts.delete(:index_name)
 
         # Deal with various limits and batching
@@ -458,8 +455,8 @@ module Dynamoid
         opts.delete(:next_token).tap do |token|
           break unless token
           q[:exclusive_start_key] = {
-            hk  => token[:hash_key_element],
-            rng => token[:range_key_element]
+              hk  => token[:hash_key_element],
+              rng => token[:range_key_element]
           }
           # For secondary indices the start key must contain the indices composite key
           # but also the table's composite keys
@@ -468,39 +465,77 @@ module Dynamoid
         end
 
         key_conditions = {
-          hk => {
-            # TODO: Provide option for other operators like NE, IN, LE, etc
-            comparison_operator: EQ,
-            attribute_value_list: [
-              opts.delete(:hash_value).freeze
-            ]
-          }
+            hk => {
+                # TODO: Provide option for other operators like NE, IN, LE, etc
+                comparison_operator: EQ,
+                attribute_value_list: [
+                    opts.delete(:hash_value).freeze
+                ]
+            }
         }
 
         opts.each_pair do |k, v|
           # TODO: ATM, only few comparison operators are supported, provide support for all operators
           next unless(op = RANGE_MAP[k])
           key_conditions[rng] = {
-            comparison_operator: op,
-            attribute_value_list: [
-              opts.delete(k).freeze
-            ].flatten # Flatten as BETWEEN operator specifies array of two elements
+              comparison_operator: op,
+              attribute_value_list: [
+                  opts.delete(k).freeze
+              ].flatten # Flatten as BETWEEN operator specifies array of two elements
           }
         end
 
-        query_filter = {}
+        # e.g.
+        #   q[:filter_expression] = "geolocation = :a1"
+        #   q[:expression_attribute_values] = {":a1" => 23}
+        #
+        # e.g.
+        #   q[:filter_expression] = "geolocation > :a1"
+        #   q[:expression_attribute_values] = {":a1" => 22}
+        #
+        # e.g.
+        #   q[:filter_expression] = "geolocation >= :a1"
+        #   q[:expression_attribute_values] = {":a1" => 23}
+        #
+        # e.g.
+        #   q[:filter_expression] = "geolocation between :a1 AND :a2"
+        #   q[:expression_attribute_values] = {":a1" => 20, ":a2" => 24}
+        #
+        # e.g.
+        #   q[:filter_expression] = "geolocation in(:a1, :a2, :a3)"
+        #   q[:expression_attribute_values] = {":a1" => 20, ":a2" => 23, ":a3" => 24}
+
+        expression_value_count      = 0
+        filter_expressions          = []
+        expression_attribute_values = {}
         opts.reject {|k,_| k.in? RANGE_MAP.keys}.each do |attr, hash|
-          query_filter[attr] = {
-            comparison_operator: FIELD_MAP[hash.keys[0]],
-            attribute_value_list: [
-              hash.values[0].freeze
-            ].flatten # Flatten as BETWEEN operator specifies array of two elements
-          }
+          case FIELD_MAP[hash.keys[0]]
+          when "in"
+            in_args_sym = []
+            in_args     = hash.values.flatten
+            in_args.each_with_index do |v, i|
+              in_args_sym << ":a#{expression_value_count + i}"
+              expression_attribute_values[":a#{expression_value_count + i}"] = v
+            end
+
+            filter_expressions << "#{attr} #{FIELD_MAP[hash.keys[0]]}(#{in_args_sym.join(', ')})"
+            expression_value_count += in_args.count
+          when "between"
+            filter_expressions << "#{attr} #{FIELD_MAP[hash.keys[0]]} :a#{expression_value_count} AND :a#{expression_value_count + 1}"
+            expression_attribute_values[":a#{expression_value_count}"] = hash.values.flatten[0]
+            expression_attribute_values[":a#{expression_value_count + 1}"] = hash.values.flatten[1]
+            expression_value_count += 2
+          else
+            filter_expressions << "#{attr} #{FIELD_MAP[hash.keys[0]]} :a#{expression_value_count}"
+            expression_attribute_values[":a#{expression_value_count}"] = hash.values[0]
+            expression_value_count += 1
+          end
         end
 
-        q[:table_name]     = table_name
-        q[:key_conditions] = key_conditions
-        q[:query_filter]   = query_filter
+        q[:filter_expression]           = filter_expressions.join(' AND ') unless filter_expressions.empty?
+        q[:expression_attribute_values] = expression_attribute_values unless expression_attribute_values.empty?
+        q[:table_name]                  = table_name
+        q[:key_conditions]              = key_conditions
 
         Enumerator.new { |y|
           record_count = 0
@@ -569,13 +604,35 @@ module Dynamoid
         request[:limit] = request_limit if request_limit
 
         if scan_hash.present?
-          request[:scan_filter] = scan_hash.reduce({}) do |memo, (attr, cond)|
-            # Flatten as BETWEEN operator specifies array of two elements
-            memo.merge(attr.to_s => {
-              comparison_operator: FIELD_MAP[cond.keys[0]],
-              attribute_value_list: [cond.values[0].freeze].flatten
-            })
+          expression_value_count      = 0
+          filter_expressions          = []
+          expression_attribute_values = {}
+          scan_hash.each do |attr, hash|
+            case FIELD_MAP[hash.keys[0]]
+            when "in"
+              in_args_sym = []
+              in_args     = hash.values.flatten
+              in_args.each_with_index do |v, i|
+                in_args_sym << ":a#{expression_value_count + i}"
+                expression_attribute_values[":a#{expression_value_count + i}"] = v
+              end
+
+              filter_expressions << "#{attr} #{FIELD_MAP[hash.keys[0]]}(#{in_args_sym.join(', ')})"
+              expression_value_count += in_args.count
+            when "between"
+              filter_expressions << "#{attr} #{FIELD_MAP[hash.keys[0]]} :a#{expression_value_count} AND :a#{expression_value_count + 1}"
+              expression_attribute_values[":a#{expression_value_count}"] = hash.values.flatten[0]
+              expression_attribute_values[":a#{expression_value_count + 1}"] = hash.values.flatten[1]
+              expression_value_count += 2
+            else
+              filter_expressions << "#{attr} #{FIELD_MAP[hash.keys[0]]} :a#{expression_value_count}"
+              expression_attribute_values[":a#{expression_value_count}"] = hash.values[0]
+              expression_value_count += 1
+            end
           end
+
+          request[:filter_expression]           = filter_expressions.join(' AND ') unless filter_expressions.empty?
+          request[:expression_attribute_values] = expression_attribute_values unless expression_attribute_values.empty?
         end
 
         Enumerator.new do |y|
@@ -650,7 +707,7 @@ module Dynamoid
       def check_table_status?(counter, resp, expect_status)
         status = PARSE_TABLE_STATUS.call(resp)
         again = counter < Dynamoid::Config.sync_retry_max_times &&
-                status == TABLE_STATUSES[expect_status]
+            status == TABLE_STATUSES[expect_status]
         {again: again, status: status, counter: counter}
       end
 
@@ -666,12 +723,12 @@ module Dynamoid
             Dynamoid.logger.info "Checked table status for #{table_name} (check #{check.inspect})"
             counter += 1
           end
-        # If you issue a DescribeTable request immediately after a CreateTable
-        #   request, DynamoDB might return a ResourceNotFoundException.
-        # This is because DescribeTable uses an eventually consistent query,
-        #   and the metadata for your table might not be available at that moment.
-        # Wait for a few seconds, and then try the DescribeTable request again.
-        # See: http://docs.aws.amazon.com/sdkforruby/api/Aws/DynamoDB/Client.html#describe_table-instance_method
+            # If you issue a DescribeTable request immediately after a CreateTable
+            #   request, DynamoDB might return a ResourceNotFoundException.
+            # This is because DescribeTable uses an eventually consistent query,
+            #   and the metadata for your table might not be available at that moment.
+            # Wait for a few seconds, and then try the DescribeTable request again.
+            # See: http://docs.aws.amazon.com/sdkforruby/api/Aws/DynamoDB/Client.html#describe_table-instance_method
         rescue Aws::DynamoDB::Errors::ResourceNotFoundException => e
           case status
           when :creating then
@@ -770,11 +827,11 @@ module Dynamoid
         key_schema = aws_key_schema(index.hash_key_schema, index.range_key_schema)
 
         hash = {
-          :index_name => index.name,
-          :key_schema => key_schema,
-          :projection => {
-            :projection_type => index.projection_type.to_s.upcase
-          }
+            :index_name => index.name,
+            :key_schema => key_schema,
+            :projection => {
+                :projection_type => index.projection_type.to_s.upcase
+            }
         }
 
         # If the projection type is include, specify the non key attributes
@@ -785,8 +842,8 @@ module Dynamoid
         # Only global secondary indexes have a separate throughput.
         if index.type == :global_secondary
           hash[:provisioned_throughput] = {
-            :read_capacity_units => index.read_capacity,
-            :write_capacity_units => index.write_capacity
+              :read_capacity_units => index.read_capacity,
+              :write_capacity_units => index.write_capacity
           }
         end
         hash
@@ -798,14 +855,14 @@ module Dynamoid
       # @return [Array]
       def aws_key_schema(hash_key_schema, range_key_schema)
         schema = [{
-          attribute_name: hash_key_schema.keys.first.to_s,
-          key_type: HASH_KEY
-        }]
+                      attribute_name: hash_key_schema.keys.first.to_s,
+                      key_type: HASH_KEY
+                  }]
 
         if range_key_schema.present?
           schema << {
-            attribute_name: range_key_schema.keys.first.to_s,
-            key_type: RANGE_KEY
+              attribute_name: range_key_schema.keys.first.to_s,
+              key_type: RANGE_KEY
           }
         end
         schema
@@ -827,15 +884,15 @@ module Dynamoid
         attribute_definitions = []
 
         attribute_definitions << build_attribute_definitions(
-          key_schema[:hash_key_schema],
-          key_schema[:range_key_schema]
+            key_schema[:hash_key_schema],
+            key_schema[:range_key_schema]
         )
 
         if ls_indexes.present?
           ls_indexes.map do |index|
             attribute_definitions << build_attribute_definitions(
-              index.hash_key_schema,
-              index.range_key_schema
+                index.hash_key_schema,
+                index.range_key_schema
             )
           end
         end
@@ -843,8 +900,8 @@ module Dynamoid
         if gs_indexes.present?
           gs_indexes.map do |index|
             attribute_definitions << build_attribute_definitions(
-              index.hash_key_schema,
-              index.range_key_schema
+                index.hash_key_schema,
+                index.range_key_schema
             )
           end
         end
@@ -865,14 +922,14 @@ module Dynamoid
         attrs = []
 
         attrs << attribute_definition_element(
-          hash_key_schema.keys.first,
-          hash_key_schema.values.first
+            hash_key_schema.keys.first,
+            hash_key_schema.values.first
         )
 
         if range_key_schema.present?
           attrs << attribute_definition_element(
-            range_key_schema.keys.first,
-            range_key_schema.values.first
+              range_key_schema.keys.first,
+              range_key_schema.values.first
           )
         end
 
@@ -887,8 +944,8 @@ module Dynamoid
         aws_type = api_type(dynamoid_type)
 
         {
-          :attribute_name => name.to_s,
-          :attribute_type => aws_type
+            :attribute_name => name.to_s,
+            :attribute_type => aws_type
         }
       end
 
@@ -984,20 +1041,20 @@ module Dynamoid
 
           @additions.each do |k,v|
             ret[k.to_s] = {
-              action: ADD,
-              value: v
+                action: ADD,
+                value: v
             }
           end
           @deletions.each do |k,v|
             ret[k.to_s] = {
-              action: DELETE,
-              value: v
+                action: DELETE,
+                value: v
             }
           end
           @updates.each do |k,v|
             ret[k.to_s] = {
-              action: PUT,
-              value: v
+                action: PUT,
+                value: v
             }
           end
 
